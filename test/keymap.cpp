@@ -216,7 +216,6 @@ TEST_CASE("handle_action()", "[KeyMap]")
 	}
 
 	SECTION("macro without commands results in exception") {
-		REQUIRE_NOTHROW(k.handle_action("macro", "r ; ; ; ; open"));
 		REQUIRE_THROWS_AS(k.handle_action("macro", "r ; ; ; ;"),
 			ConfigHandlerException);
 	}
@@ -518,4 +517,17 @@ TEST_CASE("Regression test for macro configuration semicolon handling",
 		REQUIRE(macros[1].op == OP_QUIT);
 		REQUIRE(macros[1].args == std::vector<std::string>({}));
 	}
+}
+
+TEST_CASE("It's not an error to have no operations before a semicolon in "
+	"a macro",
+	"[KeyMap]")
+{
+	KeyMap k(KM_NEWSBOAT);
+	k.handle_action("macro", "r ; ;; ; open");
+
+	const auto macro = k.get_macro("r");
+	REQUIRE(macro.size() == 1);
+	REQUIRE(macro[0].op == OP_OPEN);
+	REQUIRE(macro[0].args == std::vector<std::string>({}));
 }
