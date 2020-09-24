@@ -740,15 +740,29 @@ void KeyMap::handle_action(const std::string& action, const std::string& params)
 
 std::vector<MacroCmd> KeyMap::parse_operation_sequence(const std::string& line)
 {
-	const auto operations = utils::tokenize_quoted(line, ";");
+	const auto words = utils::tokenize_quoted(line, " ");
+
+	std::vector<std::string> tokens;
+	for (auto word : words) {
+		if (word.size() > 1 && word.back() == ';') {
+			// Found a token with no space between the command and the
+			// semicolon; let's split it in two tokens
+			word.pop_back();
+			tokens.push_back(word);
+			tokens.push_back(";");
+		} else {
+			tokens.push_back(word);
+		}
+	}
 
 	std::vector<MacroCmd> cmds;
-	for (auto operation : operations) {
-		const auto command_name = utils::extract_token_quoted(operation);
+	nonstd::optional<std::string> command_name;
+	std::vector<std::string> arguments;
+	const auto add_macro = [&]() {
 		if (!command_name.has_value()) {
-			continue;
+			return;
 		}
-		const auto arguments = utils::tokenize_quoted(operation);
+
 		MacroCmd cmd;
 		cmd.op = get_opcode(command_name.value());
 		if (cmd.op == OP_NIL) {
@@ -758,6 +772,23 @@ std::vector<MacroCmd> KeyMap::parse_operation_sequence(const std::string& line)
 		cmd.args = arguments;
 
 		cmds.push_back(cmd);
+	};
+
+	for (auto token : tokens) {
+		if (!command_name.has_value() && token != ";") {
+			command_name = token;
+		} else if (token == ";") {
+			add_macro();
+
+			command_name.reset();
+			arguments.clear();
+		} else {
+			arguments.push_back(token);
+		}
+	}
+
+	if (command_name.has_value()) {
+		add_macro();
 	}
 
 	return cmds;
